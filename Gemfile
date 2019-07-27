@@ -1,35 +1,52 @@
+# frozen_string_literal: true
+
 source 'https://rubygems.org'
-ruby '2.3.3'
+ruby '2.6.3'
 
-gem 'rails', '~> 4.2.6'
-gem 'rails_12factor'
+gem 'rails', '~> 5.2.3'
+
 # Use Postgresql as the database for Active Record
-gem 'pg'
+gem 'pg', '~>1.1'
 
+gem 'bootsnap', '>= 1.1.0', require: false
 gem 'haml'
 gem 'jquery-rails'
 gem 'jquery-ui-rails'
-gem 'mini_magick', '~> 3.6.0'
-gem 'nokogiri'
+gem 'lograge', '~> 0.11.2'
+gem 'mini_magick', '~> 4.9.5'
+gem 'nokogiri', '~> 1.10.3'
+gem 'pandoc-ruby'
 gem 'whenever'
 
-gem 'aws-sdk', '~> 2'
+gem 'autoprefixer-rails'
 gem 'browser'
 gem 'ckeditor_rails'
-gem 'formtastic', '~>2.3.0'
-gem 'foundation-rails'
+gem 'dalli'
+gem 'foundation-rails', '~> 6.5.3.0'
 gem 'i18n'
 gem 'mail'
+gem 'mini_racer', platforms: :ruby
 gem 'modernizr-rails'
+gem 'newrelic_rpm'
+gem 'puma', '~> 4.0'
+gem 'rack-canonical-host', '~> 0.2.3'
+
+# For attaching files on the feedback form
+# on Feedback model
 gem 'paperclip'
-gem 'responders', '~> 2.0'
-gem 'therubyracer', platforms: :ruby
+
+gem 'responders', '~> 3.0'
+gem 'videojs_rails'
 
 # records crashes
 gem 'raygun4ruby'
 
 # pagination
 gem 'will_paginate'
+
+# Rest/http library
+gem 'faraday'
+gem 'faraday_middleware'
 
 # logins
 gem 'devise'
@@ -56,7 +73,11 @@ group :development, :test do
   # for checking images in specs
   gem 'fastimage'
 
-  gem 'rubocop', '~> 0.34.0', require: false
+  ##
+  # We want to use the same version of rubocop as Codeclimate does - see
+  # .codeclimate.yml and https://docs.codeclimate.com/docs/rubocop
+  gem 'rubocop', '~> 0.73.0', require: false
+  gem 'rubocop-performance'
 
   # catches email sending, and logs instead
   gem 'letter_opener'
@@ -68,16 +89,28 @@ group :development, :test do
   gem 'rerun'
 
   # factories
-  gem 'factory_girl_rails'
+  gem 'factory_bot_rails'
 
   # For real looking data in tests
   gem 'faker'
 end
 
+group :development do
+  gem 'bundle-audit', require: false
+  gem 'listen'
+end
+
 group :test do
-  gem "codeclimate-test-reporter", "~> 1.0.0"
+  gem 'capybara'
+  gem 'capybara-screenshot'
+  gem 'capybara-selenium'
+  gem 'codeclimate-test-reporter', '~> 1.0.9'
+  gem 'database_cleaner'
+  gem 'percy-capybara', '~> 4.0.1'
+  gem 'rails-controller-testing'
+  gem 'webdrivers'
 end
 
 group :staging, :production do
-  gem 'unicorn'
+  gem 'rails_12factor'
 end

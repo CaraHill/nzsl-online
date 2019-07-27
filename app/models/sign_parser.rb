@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class SignParser
   VIDEO_EXAMPLES_TOTAL = 4
 
@@ -33,15 +35,14 @@ class SignParser
   end
 
   def parse_tags
-    { age_groups:    'VARIATIONAGE',      gender_groups: 'VARIATIONGENDER',
-      hint:          'hint',              usage: 'usage',
-      usage_notes:   'essay',             related_to: 'RELATEDTO',
-      gloss_main:    'glossmain',         gloss_secondary: 'glosssecondary',
-      gloss_minor:   'glossminor',        gloss_maori:   'glossmaori',
-      drawing:       'ASSET picture',     handshape:     'handshape',
-      location_name: 'location',          word_classes:  'SECONDARYWORDCLASS',
-      inflection:    'INFLECTION'
-    }.symbolize_keys.each do |key, tag|
+    { age_groups: 'VARIATIONAGE', gender_groups: 'VARIATIONGENDER',
+      hint: 'hint', usage: 'usage',
+      usage_notes: 'essay', related_to: 'RELATEDTO',
+      gloss_main: 'glossmain', gloss_secondary: 'glosssecondary',
+      gloss_minor: 'glossminor', gloss_maori:   'glossmaori',
+      drawing: 'ASSET picture', handshape:     'handshape',
+      location_name: 'location', word_classes:  'SECONDARYWORDCLASS',
+      inflection: 'INFLECTION' }.symbolize_keys.each do |key, tag|
       value = @data.value_for_tag(tag)
       @sign.send("#{key}=", value)
     end
@@ -66,17 +67,14 @@ class SignParser
     VIDEO_EXAMPLES_TOTAL.times do |i|
       next unless @data.value_for_tag("ASSET finalexample#{i}").present?
 
-      if @data.value_for_tag("ASSET finalexample#{i}_slow").present?
-        video_slow = "#{ASSET_URL}#{@data.value_for_tag("ASSET finalexample#{i}_slow")}"
-      else
-        video_slow = nil
-      end
+      video_slow = if @data.value_for_tag("ASSET finalexample#{i}_slow").present?
+                     "#{ASSET_URL}#{@data.value_for_tag("ASSET finalexample#{i}_slow")}"
+                   end
 
       @sign.examples << { transcription: parse_transcription(@data, "videoexample#{i}"),
                           translation: @data.value_for_tag("videoexample#{i}translation"),
                           video: "#{ASSET_URL}#{@data.value_for_tag("ASSET finalexample#{i}")}",
-                          video_slow: video_slow
-                       }
+                          video_slow: video_slow }
     end
   end
 

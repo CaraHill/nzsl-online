@@ -1,10 +1,12 @@
-## A page within our basic CMS
-class Page < ActiveRecord::Base
-  RESTRICTED_SLUGS = %w(admin signs feedback sign_image images javascripts
-                        stylesheets system 500 favicon flowplayer-3 flowplayer
-                        robots crossdomain) # top level routes & public dir.
+# frozen_string_literal: true
 
-  HEADER_NAV = %w(topics alphabet numbers classifiers)
+## A page within our basic CMS
+class Page < ApplicationRecord
+  RESTRICTED_SLUGS = %w[admin signs feedback sign_image images javascripts
+                        stylesheets system 500 favicon
+                        robots crossdomain].freeze # top level routes & public dir.
+
+  HEADER_NAV = %w[topics alphabet numbers classifiers].freeze
 
   has_many :page_parts
 
@@ -26,33 +28,22 @@ class Page < ActiveRecord::Base
 
   validates :template, presence: true, inclusion: { in: Page.templates }
 
-  default_scope { order('"pages"."order" ASC') }
+  default_scope { order(order: :asc) }
 
   scope :in_nav, -> { where(show_in_nav: true) }
 
-  def path
-    return '/' if slug == '/'
-    "/#{slug}/"
-  end
-
   def self.find_by_slug(slug)
     return find_by(slug: '/') if slug.blank?
+
     find_by(slug: slug)
-  end
-
-  def multiple_page_parts?
-    page_parts.length > 1
-  end
-
-  def first_part
-    page_parts.first
   end
 
   ##
   # Find pages that should display in footer navigation
   def self.in_nav
     where(show_in_nav: true).where(
-      "(SELECT COUNT(*) FROM page_parts where page_id = \"pages\".\"id\") > 0")
+      '(SELECT COUNT(*) FROM page_parts where page_id = "pages"."id") > 0'
+    )
   end
 
   ##
@@ -78,12 +69,26 @@ class Page < ActiveRecord::Base
     page
   end
 
+  def path
+    return '/' if slug == '/'
+
+    "/#{slug}/"
+  end
+
+  def multiple_page_parts?
+    page_parts.length > 1
+  end
+
+  def first_part
+    page_parts.first
+  end
+
   private
 
   def strip_text
-    title.strip! if title
-    slug.strip! if slug
-    label.strip! if label
+    title&.strip!
+    slug&.strip!
+    label&.strip!
   end
 
   def slug_and_label_from_title

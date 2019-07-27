@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 ## Settings for the web app
-class Setting < ActiveRecord::Base
+class Setting < ApplicationRecord
   validates :key, :value, presence: true
 
   def self.update_all(params)
@@ -10,7 +12,7 @@ class Setting < ActiveRecord::Base
 
   def self.get(key)
     setting = find_by_key(key.to_s)
-    setting.value if setting
+    setting&.value
   end
 
   def self.create_from_csv!(row)

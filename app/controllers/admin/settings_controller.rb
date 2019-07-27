@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Admin
   class SettingsController < ApplicationController
     layout 'admin'
@@ -7,13 +9,10 @@ module Admin
       redirect_to edit_admin_settings_path
     end
 
-    def edit
-    end
+    def edit; end
 
     def update
-      if Setting.update_all(settings_params)
-        flash[:notice] = 'Settings were successfully saved.'
-      end
+      flash[:notice] = 'Settings were successfully saved.' if Setting.update_all(settings_params)
       redirect_to edit_admin_settings_path
     end
 

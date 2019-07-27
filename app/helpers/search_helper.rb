@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module SearchHelper # rubocop:disable ModuleLength
   # Sign Attribute Image Helpers
 
@@ -14,9 +16,9 @@ module SearchHelper # rubocop:disable ModuleLength
   end
 
   def sign_attribute_image(attribute, number, main, in_menu = false)
-    return unless number
+    return unless number.present?
 
-    size = (attribute == :location && in_menu) ? '72' : '42'
+    size = attribute == :location && in_menu ? '72' : '42'
     output = content_tag :div, class: classes_for_sign_attribute(attribute, main) do
       [content_tag(:span, value_for_sign_attribute(number, attribute, main), class: 'value'),
        image_tag("#{attribute}s/#{size}/#{attribute}.#{number.downcase.gsub(/[ \/]/, '_')}.png")].join.html_safe # rubocop:disable Style/RegexpLiteral, LineLength
@@ -38,6 +40,7 @@ module SearchHelper # rubocop:disable ModuleLength
 
   def handshape_selected?(shape)
     return unless @query[:hs].present?
+
     query_hs = @query[:hs]
 
     # if it's the first, the search is just on the first two numbers
@@ -55,72 +58,103 @@ module SearchHelper # rubocop:disable ModuleLength
   end
 
   def tab_class(*classes)
-    if params[:tab].blank?
-      selected = tab_selected?(classes)
-    else
-      # note: comparing as a string, to avoid a DOS ruby bug
-      # see http://brakemanscanner.org/docs/warning_types/denial_of_service/
-      selected = true if classes.map(&:to_s).include?(params[:tab])
-    end
+    selected = tab_selected?(classes) if params[:tab].blank?
+    # note: comparing as a string, to avoid a DOS ruby bug
+    #   # see http://brakemanscanner.org/docs/warning_types/denial_of_service/
+    selected = true if classes.map(&:to_s).include?(params[:tab])
 
     classes << (selected ? :selected : '')
     classes.join(' ')
   end
 
+  def tab_classes
+    [
+      tab_class(:advanced),
+      'clearfix',
+      'medium-10',
+      'medium-centered',
+      'large-8',
+      'advanced-search-container',
+      'show-for-medium'
+    ]
+  end
+
   def tab_selected?(classes)
-    keys = @query.select { |_k, v| v.present? }.keys
-    if %w(tag usage).any? { |k| keys.include?(k) } || (keys.include?('s') && keys.length > 1)
-      selected = classes.include?(:advanced)
-    elsif %w(hs l lg).any? { |k| keys.include?(k) }
-      selected = classes.include?(:signs)
-    else
-      selected = classes.include?(:keywords)
-    end
+    keys = @query.select { |_key, value| value.present? }.keys
+    selected = if %w(tag usage).any? { |key| keys.include?(key) } || (keys.include?('s') && keys.length > 1)
+                 classes.include?(:advanced)
+               elsif %w(hs l lg).any? { |key| keys.include?(key) }
+                 classes.include?(:signs)
+               else
+                 classes.include?(:keywords)
+               end
 
     selected
   end
 
   def display_locations_search_term(simple = false)
     # reduce the list to the selected, turn them all into images.
-    locations = SignMenu.locations.flatten.select do |l|
-      location_selected?(l)
+    locations = SignMenu.locations.flatten.select do |location|
+      location_selected?(location)
     end
+    return if @query[:l].blank?
 
-    locations.map { |l| location_image l, false, false, simple }.join(' ').html_safe unless @query[:l].blank?
+    locations = locations.map do |location|
+      location_image(
+        location,
+        false,
+        false,
+        simple
+      )
+    end
+    locations.join(' ').html_safe
   end
 
   def display_handshapes_search_term(simple = false)
-    selected = SignMenu.handshapes.flatten.flatten.select do |hs|
-      handshape_selected?(hs)
+    selected = SignMenu.handshapes.flatten.flatten.select do |hand_shape|
+      handshape_selected?(hand_shape)
     end
+    return if @query[:hs].blank?
 
-    # rubocop:disable Style/BlockDelimiters
-    selected.map { |hs|
-      handshape_image hs, (hs.split('.').last == '1'), simple
-    }.join(' ').html_safe unless @query[:hs].blank?
-    # rubocop:enable Style/BlockDelimiters
+    selected = selected.map do |hand_shape|
+      handshape_image(
+        hand_shape,
+        hand_shape.split('.').last == '1',
+        simple
+      )
+    end
+    selected.join(' ').html_safe
   end
 
   def display_location_groups_search_term(simple = false)
-    locations = SignMenu.location_groups.select { |lg| location_group_selected?(lg) }
-    locations.map { |lg| location_image lg, true, false, simple }.join(' ').html_safe unless @query[:lg].blank?
+    locations = SignMenu.location_groups.select do |location_group|
+      location_group_selected?(location_group)
+    end
+    return if @query[:lg].blank?
+
+    locations = locations.map do |location_group|
+      location_image(
+        location_group,
+        true,
+        false,
+        simple
+      )
+    end
+    locations.join(' ').html_safe
   end
 
   def display_usage_tag_search_term
     # reduce the list to the selected
-    h SignMenu.usage_tags.select { |u|
-      @query[:usage].include?(u.last.to_s)
-    }.map(&:first).join(' ') unless @query[:usage].blank?
+    h SignMenu.usage_tags.select { |u| @query[:usage].include?(u.last.to_s) }.map(&:first).join(' ') unless @query[:usage].blank? # rubocop:disable Metrics/LineLength
   end
 
   def display_topic_tag_search_term
-    h SignMenu.topic_tags.select { |u|
-      @query[:tag].include?(u.last.to_s)
-    }.map(&:first).join(' ') unless @query[:tag].blank?
+    h SignMenu.topic_tags.select { |u| @query[:tag].include?(u.last.to_s) }.map(&:first).join(' ') unless @query[:tag].blank? # rubocop:disable Metrics/LineLength
   end
 
   def search_term(key)
     return if @query[key].blank? || (@query[key].is_a?(Array) && @query[key].reject(&:blank?).blank?)
+
     h @query[key].join(' ')
   end
 
@@ -139,6 +173,7 @@ module SearchHelper # rubocop:disable ModuleLength
     if attribute == :handshape
       # if it's the first, just search on the first two numbers
       return number.split('.')[0, 2].join('.') if main
+
       return number
     end
 
@@ -151,12 +186,11 @@ module SearchHelper # rubocop:disable ModuleLength
   end
 
   def classes_for_sign_attribute(attribute, main)
-    classes = 'image rounded'
-    if main
-      classes << ' main_image'
-    elsif attribute == :handshape
-      classes << ' transition'
-    end
-    classes
+    # a space is required after the base class names below to ensure that they are
+    # properly separated from other classes assigned in the conditionals.
+    classes = %w(image rounded)
+    classes << 'main_image' if main
+    classes << 'transition' if attribute == :handshape
+    classes.join(' ')
   end
 end

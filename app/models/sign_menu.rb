@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class SignMenu
   def self.handshapes
     [
@@ -80,6 +82,7 @@ class SignMenu
       ['Time',                                      39],
       ['Travel and transportation',                 40],
       ['Weather',                                   41],
-      ['Work',                                      42]]
+      ['Work',                                      42]
+    ]
   end
 end

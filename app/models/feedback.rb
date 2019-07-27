@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 ##
 # Sends feedback email
-class Feedback < ActiveRecord::Base
+class Feedback < ApplicationRecord
   validates :name, :message, presence: true
   validates :email, format: /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i,
                     allow_nil: true
@@ -15,7 +17,7 @@ class Feedback < ActiveRecord::Base
     FeedbackMailer.email(self).deliver
     self.video = nil
     save
-  rescue
-    return false
+  rescue StandardError
+    false
   end
 end

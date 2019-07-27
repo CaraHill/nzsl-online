@@ -1,19 +1,14 @@
 # frozen_string_literal: true
 
 class ApplicationController < ActionController::Base
+  include BasicAuthHelper
+
   protect_from_forgery with: :exception
   require 'browser'
   layout :layout_by_resource
 
   before_action :check_browser_support
-
-  def check_browser_support
-    setup_browser_rules
-    return if browser.modern?
-    flash[:error] = %(Your browser is not supported. This may mean that some features of NZSL Online will
-                      not display properly. <a href="https://updatemybrowser.org/"> Would you like to
-                      upgrade your browser? </a>).html_safe
-  end
+  before_action :staging_http_auth
 
   private
 
@@ -45,7 +40,7 @@ class ApplicationController < ActionController::Base
   end
 
   def redirect_back_or_default
-    redirect_to :back
+    redirect_back(fallback_location: root_path)
   rescue ActionController::RedirectBackError
     redirect_to root_path
   end
@@ -55,10 +50,6 @@ class ApplicationController < ActionController::Base
       format.html { redirect ? redirect_to(redirect) : redirect_back_or_default }
       format.js { render text: object.to_json }
     end
-  end
-
-  def load_search_query
-    # @query = session[:search][:query] if session[:search].present? && session[:search][:query].present?
   end
 
   def set_search_query
@@ -73,9 +64,28 @@ class ApplicationController < ActionController::Base
   def render_404
     @page = Page.find(Setting.get(:'404'))
     if @page
-      render template: "pages/#{@page.template}", status: 404
+      render template: "pages/#{@page.template}", status: 404, formats: :html
     else
       render text: '404 - page not found', status: 404
+    end
+  end
+
+  protected
+
+  def check_browser_support
+    setup_browser_rules
+    return if browser.modern?
+
+    flash[:error] = %(Your browser is not supported. This may mean that some features of NZSL Online will
+                      not display properly. <a href="https://updatemybrowser.org/"> Would you like to
+                      upgrade your browser? </a>).html_safe
+  end
+
+  def staging_http_auth
+    return unless staging_env?
+
+    authenticate_or_request_with_http_basic('Username and Password please') do |username, password|
+      username == ENV['HTTP_BASIC_AUTH_USERNAME'] && password == ENV['HTTP_BASIC_AUTH_PASSWORD']
     end
   end
 end

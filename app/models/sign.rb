@@ -1,12 +1,24 @@
 # frozen_string_literal: true
 
-## a sign in New Zealand Sign Language
-class Sign
-  require 'open-uri'
-  require 'nokogiri'
+##
+# A sign in New Zealand Sign Language
+#
+class Sign # rubocop:disable Metrics/ClassLength
+  # Create a custom error class.
+  #
+  # * Callers of this class can `rescue` one exception class if they want to
+  #   catch **all** possible exceptions from this class.
+  # * All uncaught exceptions related to this class are grouped together in
+  #   exception monitoring tools.
+  #
+  class FreelexCommunicationError < StandardError; end
 
   ELEMENT_NAME = 'entry'
-  RESULTS_PER_PAGE = 25
+
+  # The breakpoints for this app allow a 1x, 2x, 3x, and 4x layout. 12, 24, etc.
+  # are the best page numbers for this. Because of performance concerns, I'm
+  # starting with 12.
+  RESULTS_PER_PAGE = 24
 
   # Sign attributes
   attr_accessor :id, :video, :video_slow, :drawing, :handshape, :location_name,
@@ -22,7 +34,7 @@ class Sign
   end
 
   def location
-    SignMenu.locations.flatten.find { |l| l.split('.')[2].downcase == location_name }
+    SignMenu.locations.flatten.find { |l| l.split('.')[2].downcase[0, 4] == location_name[0, 4] }
   end
 
   # class #
@@ -30,6 +42,7 @@ class Sign
   def self.first(params)
     _count, entries = search(params)
     return nil if entries.empty?
+
     SignParser.new(entries.first).build_sign
   end
 
@@ -47,11 +60,23 @@ class Sign
   end
 
   def self.find(all_or_first = :first, params)
-    send(all_or_first, params) if all_or_first == :all || all_or_first == :first
+    send(all_or_first, params) if %i[all first].includes(all_or_first)
   end
 
   def self.random
-    first random: 1
+    first(random: 1)
+  end
+
+  def self.sign_of_the_day # rubocop:disable Metrics/AbcSize
+    Rails.cache.fetch('sign-of-the-day', expires_in: 24.hours) do
+      Rails.logger.debug('Fetching new random sign from Freelex')
+      random
+    end
+  rescue StandardError => e
+    raise e if Rails.env.test? || Rails.env.development?
+
+    Raygun.track_exception(Exception.new("Recovered from sign-of-the-day cache lookup error. error=#{e.inspect}"))
+    random
   end
 
   def self.paginate(search_query, page_number)
@@ -65,27 +90,47 @@ class Sign
   end
 
   def self.search(params)
-    before_time = Time.now.to_f
-    url = url_for_search(params)
-    xml_document = Nokogiri::XML(open(url))
+    xml_request(params)
+  rescue FreelexCommunicationError => e
+    msg = <<~EO_MSG
+      Recovered from a failure to retrieve data from Freelex!
+        * An empty result-set will be returned to the calling code.
+        * Error details:
+          #{e}
+    EO_MSG
+
+    Rails.logger.warn(msg)
+    Raygun.track_exception(e)
+
+    [0, []]
+  end
+
+  def self.xml_request(params)
+    xml_document = Nokogiri::XML(http_conn.get(uri_for_search(params)).body)
     entries = xml_document.css(ELEMENT_NAME)
     count = xml_document.css('totalhits').inner_text.to_i
-    save_time_elapsed(url, before_time, count)
-
     [count, entries]
+  rescue Faraday::ConnectionFailed
+    raise(FreelexCommunicationError, "Failed to connect to Freelex at URL: '#{SIGN_URL}'")
+  rescue Faraday::TimeoutError
+    raise(FreelexCommunicationError, 'Connection timeout')
+  rescue Faraday::Error
+    raise(FreelexCommunicationError, 'Generic communication error')
+  rescue Nokogiri::SyntaxError
+    raise(FreelexCommunicationError, 'Failed to parse response')
+  rescue StandardError => e
+    raise(FreelexCommunicationError, "Failed to communicate with Freelex because #{e}")
   end
 
-  def self.save_time_elapsed(url, before_time, count)
-    # how long did that query take?
-    after_time = Time.now.to_f
-    elapsed_time = after_time - before_time
-    Request.create! url: url, elapsed_time: elapsed_time, count: count, query_type: 'Sign.search'
-  end
-
-  def self.url_for_search(query)
+  def self.uri_for_search(query)
     # The handling of arrays in query strings is different
     # in the API than in rails
     return SIGN_URL unless query.is_a?(Hash)
+
+    '?' + query_string_for_search(query).join('&')
+  end
+
+  def self.query_string_for_search(query)
     query_string = []
     query.each do |k, v|
       if v.is_a?(Array)
@@ -94,6 +139,14 @@ class Sign
         query_string << "#{k}=#{CGI.escape(v.to_s)}"
       end
     end
-    "#{SIGN_URL}?#{query_string.join('&')}"
+    query_string
+  end
+
+  def self.http_conn
+    Faraday.new(url: SIGN_URL) do |faraday|
+      faraday.use FaradayMiddleware::FollowRedirects
+      faraday.options.timeout = FREELEX_TIMEOUT
+      faraday.adapter Faraday.default_adapter
+    end
   end
 end

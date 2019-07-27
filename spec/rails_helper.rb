@@ -1,8 +1,22 @@
+# frozen_string_literal: true
+
+require 'capybara/rspec'
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 ENV['RAILS_ENV'] ||= 'test'
 require 'spec_helper'
-require File.expand_path('../../config/environment', __FILE__)
+require File.expand_path('../config/environment', __dir__)
 require 'rspec/rails'
+
+require 'capybara'
+require 'capybara/rspec'
+require 'selenium/webdriver'
+require 'capybara-screenshot/rspec'
+require 'percy'
+
+require 'webdrivers'
+
+Capybara.default_driver = :selenium_chrome_headless
+Capybara.javascript_driver = :selenium_chrome_headless
 
 # Add additional requires below this line. Rails is not loaded until this point!
 
@@ -26,6 +40,8 @@ Dir[Rails.root.join('spec/support/**/*.rb')].each { |f| require f }
 ActiveRecord::Migration.maintain_test_schema!
 
 RSpec.configure do |config|
+  config.include Warden::Test::Helpers
+
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_path = "#{::Rails.root}/spec/fixtures"
 
@@ -49,5 +65,27 @@ RSpec.configure do |config|
   # https://relishapp.com/rspec/rspec-rails/docs
   config.infer_spec_type_from_file_location!
 
-  config.include SpecHelpers::AuthHelper, type: :controller
+  # Stop puma from printing its normal startup output in
+  # the middle of your test output
+  config.before(:all, type: :system) do
+    Capybara.server = :puma, { Silent: true }
+  end
+
+  config.before(:each, type: :system) do
+    driven_by :rack_test
+  end
+
+  config.before(:each, type: :system, js: true) do
+    driven_by :selenium_chrome_headless
+
+    # Use :selenium_chrome in development if you want Chrome browser windows to
+    # appear - this is convenient for debugging issues because `binding.pry` in
+    # your test will keep the Chrome window open and let you inspect what is
+    # really going on.
+    #
+    # This driver should only be enabled for local developer testing and the
+    # change should not be checked into git.
+    #
+    # driven_by :selenium_chrome
+  end
 end

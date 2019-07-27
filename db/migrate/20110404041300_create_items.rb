@@ -1,9 +1,9 @@
-class CreateItems < ActiveRecord::Migration
+class CreateItems < ActiveRecord::Migration[4.2]
   def self.up
     create_table :items do |t|
-      t.integer :sign_id, :null => false
-      t.integer :vocab_sheet_id, :null => false
-      t.string :name, :null => false
+      t.integer :sign_id, null: false
+      t.integer :vocab_sheet_id, null: false
+      t.string :name, null: false
       t.timestamps
     end
   end
@@ -12,4 +12,3 @@ class CreateItems < ActiveRecord::Migration
     drop_table :items
   end
 end
-

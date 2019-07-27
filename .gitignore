@@ -14,9 +14,16 @@ public/system/images
 *.swp
 *~
 
+public/.well-known/**/*
 public/assets
 *~
 *.swp
 
 coverage/*
 .env
+
+postgres/*
+
+node_modules
+yarn-error.log
+public/packs

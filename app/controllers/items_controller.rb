@@ -1,83 +1,79 @@
+# frozen_string_literal: true
+
 class ItemsController < ApplicationController
   skip_before_action :verify_authenticity_token, only: :reorder
 
   before_action :find_or_create_vocab_sheet, :set_search_query, :footer_content
   respond_to :html, :json
 
-  def create # rubocop:disable Metrics/AbcSize, MethodLength, Metrics/PerceivedComplexity
-    sign_id = params[:sign_id].to_i
-    if @sheet.includes_sign?(sign_id: sign_id)
+  def create # rubocop:disable Metrics/AbcSize, MethodLength
+    if @sheet.includes_sign?(sign_id: params[:sign_id])
       flash[:notice] = t('vocab_sheet.item.add_duplicate')
     else
-      @item = Item.new
-      @item.sign = Sign.first(id: sign_id)
-      @item.sign_id = sign_id
-      @item.name = params[:name].to_s if params[:name]
-      @item.maori_name = params[:maori_name].to_s if params[:maori_name]
-      @item.position = 1 # added at position one.
+      @item = Item.new(create_params)
+
       if @item.valid?
-        @sheet.items << @item
+        @sheet.add_item(@item)
         flash[:notice] = t('vocab_sheet.item.add_success')
       else
         flash[:error] = t('vocab_sheet.item.add_failure')
       end
     end
+
     if request.xhr?
-      flash[:notice] = nil
-      flash[:error] = nil
+      flash[:notice] = flash[:error] = nil
       render partial: 'shared/vocab_sheet_item', locals: { vocab_sheet_item: @item }
     else
       respond_with_json_or_redirect(@item)
     end
   end
 
-  def update # rubocop:disable Metrics/AbcSize
-    @item = @sheet.items.find(params[:id])
-    @item.name = params[:item][:name] if params[:item][:name]
-    @item.maori_name = params[:item][:maori_name] if params[:item][:maori_name]
-    if @item.save
+  def update
+    @item = @sheet.update_item(update_item_params)
+
+    if @item
       flash[:notice] = t('vocab_sheet.item.update_success')
     else
       flash[:error] = t('vocab_sheet.item.update_failure')
     end
-    if request.xhr?
-      flash[:notice] = nil
-      flash[:error] = nil
-      render json: @item
-    else
-      respond_with_json_or_redirect(@item)
-    end
+
+    return respond_with_json_or_redirect(@item) unless request.xhr?
+
+    flash[:notice] = flash[:error] = nil
+    render json: @item
   end
 
-  def destroy # rubocop:disable Metrics/AbcSize, MethodLength
-    @item = @sheet.items.find(params[:id])
+  def destroy # rubocop:disable Metrics/AbcSize
+    @item = @sheet.destroy_item(params[:id])
 
-    if @item.destroy
-      if @sheet.items.length.zero?
-        flash[:vocab_bar_notice] = t('vocab_sheet.delete_success')
-      else
-        flash[:vocab_bar_notice] = t('vocab_sheet.item.remove_success')
-      end
+    if @item
+      flash[:vocab_bar_notice] = if @sheet.items.length.zero?
+                                   t('vocab_sheet.delete_success')
+                                 else
+                                   t('vocab_sheet.item.remove_success')
+                                 end
     else
       flash[:vocab_bar_error] = t('vocab_sheet.item.remove_failure')
     end
-    if request.xhr?
-      flash[:vocab_bar_notice] = nil
-      flash[:vocab_bar_error] = nil
-      render nothing: true
-    else
-      respond_with_json_or_redirect(@item)
-    end
+
+    return respond_with_json_or_redirect(@item) unless request.xhr?
+
+    flash[:vocab_bar_notice] = flash[:vocab_bar_error] = nil
+    render json: nil, status: :ok
   end
 
   def reorder
-    params[:items].each_with_index do |id, index|
-      # Need to update updated_at column as update_all doesn't do this for some reason
-      @sheet.items.where(id: id.to_i).update_all(
-        position: index + 1,
-        updated_at: Time.zone.now
-      )
-    end
-    render nothing: true
+    @sheet.reorder_items(item_ids: params[:items])
+    head :ok
+  end
+
+  private
+
+  def create_params
+    params.permit(:sign_id)
+  end
+
+  def update_item_params
+    params.permit(:id, :sign_id, :name, :maori_name, :notes)
   end
 end
